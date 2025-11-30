@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# IDEs
+.idea/
+
+# Project Specific
+.puzzle_cache/
