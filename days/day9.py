@@ -1,23 +1,13 @@
-from enum import Enum, StrEnum
-
+"""
+Hardest one so far omg. Works by sorting through all the areas of all the combinations of tile swaps. This forms a
+rectangle. But the trick is, you need to see if the 2 vertices on the opposite corners fall inside the polygon created
+by the coordinates. To do this you have to use ray tracing which you draw a line from that point in the same direction.
+If that line intersects an even number of times, you are outside the polygon. You have to ignore certain edges if you
+fall right on the vertex (so you don't double count) and you have to ignore completely parallel lines. Once you know
+the four points are in the polygon, do one last check to ensure the edges they create don't intersect with anything. If
+they do, the line draws outside the bounds of the polygon.
+"""
 from utils import puzzle
-
-
-class Pivot(StrEnum):
-    TOP_LEFT = "Top Left"
-    TOP_RIGHT = "Top Right"
-    BOTTOM_LEFT = "Bottom Left"
-    BOTTOM_RIGHT = "Bottom Right"
-
-    @classmethod
-    def from_pos(cls, first: tuple[int, int], second: tuple[int, int], pos: tuple[int, int]):
-        if pos[0] <= first[0] and pos[0] <= second[0] and pos[1] <= first[1] and pos[1] <= second[1]:
-            return Pivot.BOTTOM_LEFT
-        if pos[0] >= first[0] and pos[0] >= second[0] and pos[1] >= first[1] and pos[1] >= second[1]:
-            return Pivot.TOP_RIGHT
-        if pos[0] <= first[0] and pos[0] <= second[0] and pos[1] >= first[1] and pos[1] >= second[1]:
-            return Pivot.TOP_LEFT
-        return Pivot.BOTTOM_RIGHT
 
 
 @puzzle
@@ -39,12 +29,13 @@ def part1(puzzle_input):
 
 @puzzle
 def part2(puzzle_input):
-    tile_positions = [tuple(int(val) for val in line.split(',')) for line in puzzle_input]
+    tile_positions = [
+        tuple(int(val) for val in line.split(",")) for line in puzzle_input
+    ]
     lines = []
-    for i, tile_position in enumerate(tile_positions + [tile_positions[0]]):
+    for i, tile_position in enumerate(tile_positions):
         last_position = tile_positions[i - 1]
         lines.append((last_position, tile_position))
-
 
     rectangles = []
     for i, pos1 in enumerate(tile_positions):
@@ -58,52 +49,95 @@ def part2(puzzle_input):
     rectangles = sorted(rectangles, key=lambda x: x[2])
     while rectangles:
         pos1, pos2, area = rectangles.pop()
-        print(f'Original: {(pos1, pos2, area)}')
+        print(f"Original: {(pos1, pos2, area)}")
         corner1, corner2 = (pos1[0], pos2[1]), (pos2[0], pos1[1])
-        print(f'Testing corners: {(corner1, corner2)}')
-        if (corner1 in tile_positions or _in_polygon(corner1, lines)) and (corner2 in tile_positions or _in_polygon(corner2, lines)):
+        if (
+            _in_polygon(corner1, lines)
+            and _in_polygon(corner2, lines)
+            and not _crosses_any((pos1, corner1), lines)
+            and not _crosses_any((pos2, corner1), lines)
+            and not _crosses_any((pos1, corner2), lines)
+            and not _crosses_any((pos2, corner2), lines)
+        ):
             print(area)
+            xs, ys = zip(*(tile_positions + [tile_positions[0]]))
+
+            import plotly.graph_objects as go
+
+            fig = go.Figure(go.Scatter(x=xs, y=ys, fill="toself"))
+            fig.add_shape(
+                type="rect",
+                x0=min(corner1[0], corner2[0]),
+                x1=max(corner1[0], corner2[0]),
+                y0=min(corner1[1], corner2[1]),
+                y1=max(corner1[1], corner2[1]),
+                line=dict(color="red"),
+            )
+            fig.show()
             return
 
 
 def _in_polygon(pos, lines: list[tuple[tuple, tuple]]) -> bool:
-    print(f'Testing: {pos} in polygon')
     for line in lines:
-        if _point_intersects(line, pos):
-            print(f'On edge of {line}')
+        if _is_on_line(line, pos):
             return True
-    segments_to_trace = sorted([line for line in lines if line[0][0] == line[1][0] and min(line[0][1], line[1][1]) <= pos[1] < max(line[0][1], line[1][1])], key=lambda x: x[0][0])
-    rays = 0
-    last_dir = None
-    for segment in segments_to_trace:
-        min_y = min(segment[0][1], segment[1][1])
-        max_y = max(segment[0][1], segment[1][1])
-        if segment[0][1] == pos[1] and segment[0][1] == min_y or segment[1][1] == pos[1] and segment[1][1] == min_y:
-            # Hit bottom
-            current_dir = 'up'
-            if current_dir == last_dir:
-                rays += 1
-                last_dir = None
-            else:
-                last_dir = current_dir
-        elif segment[0][1] == pos[1] and segment[0][1] == max_y or segment[1][1] == pos[1] and segment[1][1] == max_y:
-            current_dir = 'down'
-            if current_dir == last_dir:
-                rays += 1
-                last_dir = None
-            else:
-                last_dir = current_dir
-        else:
-            last_dir = None
-            rays += 1
-    result = rays % 2 == 1
-    print(f'Ray traced: {rays}. Is in polygon: {result}')
-    return result
+    counter = 0
+    for line in lines:
+        if _intersects(line, pos):
+            counter += 1
+    return counter % 2 == 1
 
 
-def _point_intersects(line: tuple[tuple, tuple], point: tuple[int, int]):
-    min_x, max_x, min_y, max_y = min(line[0][0], line[1][0]), max(line[0][0], line[1][0]), min(line[0][1], line[1][1]), max(line[0][1], line[1][1])
-    return min_x <= point[0] <= max_x and min_y <= point[1] <= max_y
+def _is_on_line(line, pos) -> bool:
+    return (
+        pos[0] == line[0][0]
+        and min(line[0][1], line[1][1]) <= pos[1] <= max(line[0][1], line[1][1])
+    ) or (
+        pos[1] == line[0][1]
+        and min(line[0][0], line[1][0]) <= pos[0] <= max(line[0][0], line[1][0])
+    )
+
+
+def _crosses_any(line, lines) -> bool:
+    print(f"Testing line: {line}")
+    for line2 in lines:
+        if line == line2:
+            continue
+        if line[0][0] == line[1][0]:
+            # Vertical
+            if line2[0][0] == line2[1][0]:
+                # Parallel
+                continue
+            if min(line2[0][0], line2[1][0]) < line[0][0] < max(
+                line2[0][0], line2[1][0]
+            ) and min(line[0][1], line[1][1]) < line2[0][1] < max(
+                line[0][1], line[1][1]
+            ):
+                return True
+        if line[0][1] == line[1][1]:
+            # Horizontal
+            if line2[0][1] == line[1][1]:
+                # Parallel
+                continue
+            if min(line2[0][1], line2[1][1]) < line[0][1] < max(
+                line2[0][1], line2[1][1]
+            ) and min(line[0][0], line[1][0]) < line2[0][0] < max(
+                line[0][0], line[1][0]
+            ):
+                return True
+
+    return False
+
+
+def _intersects(line, pos) -> bool:
+    # If line is a horizontal line, do not count it
+    if line[0][1] == line[1][1]:
+        return False
+    # If line is left of pos, do not count it
+    if line[0][0] < pos[0]:
+        return False
+    return min(line[0][1], line[1][1]) <= pos[1] < max(line[0][1], line[1][1])
+
 
 def _area(pos1, pos2):
     max_x = max(pos1[0], pos2[0])
