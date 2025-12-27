@@ -4,6 +4,7 @@ coordinate systems and crawling through them. No real algorithm here other than 
 values. There is a tricky thing here to account for which is for adjacent digits being of the same number which is why
 you have to combine them.
 """
+
 from utils import puzzle, adj_coords
 
 
@@ -63,17 +64,21 @@ def part2(puzzle_input):
                     if puzzle_input[coord[0]][coord[1]].isdigit()
                 ]
                 h_coords = [coord for coord in coords_with_numbers if coord[0] == i]
-                below_coords = _merge_adj_horizontal([
-                    coord for coord in coords_with_numbers if coord[0] == i + 1
-                ])
-                above_coords = _merge_adj_horizontal([coord for coord in coords_with_numbers if coord[0] == i - 1])
+                below_coords = _merge_adj_horizontal(
+                    [coord for coord in coords_with_numbers if coord[0] == i + 1]
+                )
+                above_coords = _merge_adj_horizontal(
+                    [coord for coord in coords_with_numbers if coord[0] == i - 1]
+                )
                 all_coords = h_coords + below_coords + above_coords
                 if len(all_coords) == 2:
-                    print(f'Found gear ({i}, {j}): {all_coords}')
-                    result += _parse_number(puzzle_input, all_coords[0]) * _parse_number(puzzle_input, all_coords[1])
+                    print(f"Found gear ({i}, {j}): {all_coords}")
+                    result += _parse_number(
+                        puzzle_input, all_coords[0]
+                    ) * _parse_number(puzzle_input, all_coords[1])
 
                 else:
-                    print(f'Ignoring gear ({i}, {j}): {all_coords}')
+                    print(f"Ignoring gear ({i}, {j}): {all_coords}")
 
     print(result)
 
@@ -93,7 +98,9 @@ def _parse_number(puzzle_input: list[str], coord: tuple[int, int]) -> int:
     s = puzzle_input[coord[0]][coord[1]]
     i, j = coord[1] - 1, coord[1] + 1
     width = len(puzzle_input[0])
-    while (0 <= i < width and puzzle_input[coord[0]][i].isdigit()) or (0 <= j < width and puzzle_input[coord[0]][j].isdigit()):
+    while (0 <= i < width and puzzle_input[coord[0]][i].isdigit()) or (
+        0 <= j < width and puzzle_input[coord[0]][j].isdigit()
+    ):
         if puzzle_input[coord[0]][i].isdigit():
             s = puzzle_input[coord[0]][i] + s
             i -= 1
@@ -101,9 +108,6 @@ def _parse_number(puzzle_input: list[str], coord: tuple[int, int]) -> int:
             s = s + puzzle_input[coord[0]][j]
             j += 1
     return int(s)
-
-
-
 
 
 if __name__ == "__main__":
